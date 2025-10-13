@@ -124,6 +124,43 @@ app.post('/add-product', async (req, res) => {
   }
 });
 
+// ---------- Edit Product ----------
+app.get('/edit-product/:id', async (req, res) => {
+  if (!req.session.vendor) return res.redirect('/login');
+  const { id } = req.params;
+  const result = await pool.query('SELECT * FROM products WHERE id=$1 AND vendor_id=$2', [id, req.session.vendor.id]);
+  if (result.rows.length === 0) return res.send('Product not found');
+  res.render('edit_product', { product: result.rows[0] });
+});
+app.post('/edit-product/:id', async (req, res) => {
+  if (!req.session.vendor) return res.redirect('/login');
+  const { id } = req.params;
+  const { name, price, image_url, description } = req.body;
+  try {
+    await pool.query(
+      'UPDATE products SET name=$1, price=$2, image=$3, description=$4 WHERE id=$5 AND vendor_id=$6',
+      [name, price, image_url, description, id, req.session.vendor.id]
+    );
+    res.redirect('/dashboard');
+  } catch (err) {
+    console.error(err);
+    res.send('Error updating product');
+  }
+});
+
+// ---------- Delete Product ----------
+app.post('/delete-product/:id', async (req, res) => {
+  if (!req.session.vendor) return res.redirect('/login');
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM products WHERE id=$1 AND vendor_id=$2', [id, req.session.vendor.id]);
+    res.redirect('/dashboard');
+  } catch (err) {
+    console.error(err);
+    res.send('Error deleting product');
+  }
+});
+
 // ---------- Store Page ----------
 app.get('/store/:store_name', async (req, res) => {
   const sanitizedStore = sanitizeStoreName(req.params.store_name);
