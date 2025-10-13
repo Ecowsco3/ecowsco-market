@@ -135,7 +135,7 @@ app.get('/store/:store_name', async (req, res) => {
 });
 
 // ---------- Password Reset Request ----------
-app.get('/reset-request', (req, res) => res.render('reset_request'));
+app.get('/reset-request', (req, res) => res.render('reset_request', { resetLink: null }));
 app.post('/reset-request', async (req, res) => {
   const { email } = req.body;
   const token = crypto.randomBytes(32).toString('hex');
@@ -147,11 +147,10 @@ app.post('/reset-request', async (req, res) => {
       expires,
     ]);
     const link = `https://${req.headers.host}/reset-password/${token}`;
-    await sendEmail(email, 'Ecowsco Password Reset', `<p>Click <a href="${link}">here</a> to reset your password.</p>`);
-    res.send('Reset link sent! Check your email.');
+    res.render('reset_request', { resetLink: link });
   } catch (err) {
     console.error(err);
-    res.send('Error sending reset link.');
+    res.send('Error generating reset link.');
   }
 });
 
