@@ -8,7 +8,7 @@ const bcrypt = require('bcrypt');
 const pool = require('./utils/db.js');
 const crypto = require('crypto');
 const path = require('path');
-const emailjs = require('@emailjs/nodejs');
+const nodemailer = require('nodemailer');
 
 const app = express();
 
@@ -25,24 +25,26 @@ app.use(
   })
 );
 
-// ---------- Helper: send emails via Email.js ----------
+// ---------- Helper: send emails via Nodemailer ----------
 async function sendEmail(to, subject, message) {
   try {
-    await emailjs.send(
-      process.env.EMAILJS_SERVICE_ID,
-      process.env.EMAILJS_TEMPLATE_ID,
-      {
-        to_email: to,
-        subject,
-        message,
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
       },
-      {
-        publicKey: process.env.EMAILJS_PUBLIC_KEY,
-        privateKey: process.env.EMAILJS_PRIVATE_KEY,
-      }
-    );
+    });
+
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: to,
+      subject: subject,
+      html: message,
+    });
+    console.log('Email sent successfully to:', to);
   } catch (err) {
-    console.error('Email.js error:', err);
+    console.error('Email sending error:', err);
   }
 }
 
@@ -218,5 +220,5 @@ app.post('/admin/delete-store/:id', async (req, res) => {
 });
 
 // ---------- Start Server ----------
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const PORT = 5000;
+app.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT}`));
