@@ -1,0 +1,19 @@
+{
+  "name": "ecowsco-market",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@emailjs/nodejs": "^5.0.2",
+    "bcrypt": "^6.0.0",
+    "body-parser": "^2.2.0",
+    "dotenv": "^17.2.3",
+    "ejs": "^3.1.10",
+    "express": "^4.19.2",
+    "express-session": "^1.18.2",
+    "node-fetch": "^3.3.2",
+    "pg": "^8.16.3"
+  }
+}

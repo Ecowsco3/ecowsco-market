@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title><%= vendor.store_name %></title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-6">
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-3xl font-bold"><%= vendor.store_name %></h1>
+    <% if(vendor.whatsapp){ %>
+      <a href="<%= vendor.whatsapp %>" target="_blank" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">WhatsApp</a>
+    <% } %>
+  </div>
+
+  <p class="mb-4"><%= vendor.description %></p>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <% products.forEach(p=>{ %>
+      <div class="bg-white p-4 rounded shadow">
+        <img src="<%= p.image %>" alt="<%= p.name %>" class="w-full h-40 object-cover rounded mb-2">
+        <h3 class="font-bold"><%= p.name %></h3>
+        <p>$<%= p.price %></p>
+        <p class="text-sm"><%= p.description %></p>
+      </div>
+    <% }) %>
+  </div>
+</body>
+    </html>
