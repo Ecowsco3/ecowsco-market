@@ -4,8 +4,17 @@
 <meta charset="UTF-8">
 <title><%= vendor.store_name %> - Ecowsco Market</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<style>
+  .cart-count {
+    animation: bounce 0.3s ease;
+  }
+  @keyframes bounce {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+  }
+</style>
 </head>
-<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen pb-20">
   <div class="bg-white shadow-md mb-8">
     <div class="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center">
       <div>
@@ -42,12 +51,159 @@
             <div class="p-5">
               <h3 class="font-bold text-xl text-gray-800 mb-2"><%= p.name %></h3>
               <p class="text-3xl font-bold text-green-600 mb-3">₵<%= p.price %></p>
-              <p class="text-sm text-gray-600 line-clamp-2"><%= p.description || 'No description available' %></p>
+              <p class="text-sm text-gray-600 mb-4"><%= p.description || 'No description available' %></p>
+              <button onclick="addToCart('<%= p.id %>', '<%= p.name %>', <%= p.price %>)" 
+                      class="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-3 rounded-lg hover:from-blue-600 hover:to-blue-700 transition font-semibold shadow-lg">
+                Add to Cart
+              </button>
             </div>
           </div>
         <% }) %>
       </div>
     <% } %>
   </div>
+
+  <!-- Floating Cart Button -->
+  <div id="cartButton" class="fixed bottom-6 right-6 z-50">
+    <button onclick="toggleCart()" class="relative bg-gradient-to-r from-green-500 to-emerald-600 text-white p-4 rounded-full shadow-2xl hover:from-green-600 hover:to-emerald-700 transition">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
+      </svg>
+      <span id="cartCount" class="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center cart-count">0</span>
+    </button>
+  </div>
+
+  <!-- Cart Sidebar -->
+  <div id="cartSidebar" class="fixed top-0 right-0 h-full w-full md:w-96 bg-white shadow-2xl transform translate-x-full transition-transform duration-300 z-50">
+    <div class="h-full flex flex-col">
+      <div class="p-6 border-b flex justify-between items-center bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+        <h3 class="text-2xl font-bold">Your Cart</h3>
+        <button onclick="toggleCart()" class="text-white hover:text-gray-200">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+      
+      <div id="cartItems" class="flex-1 overflow-y-auto p-6">
+        <p class="text-gray-500 text-center">Your cart is empty</p>
+      </div>
+      
+      <div class="p-6 border-t bg-gray-50">
+        <div class="mb-4">
+          <div class="flex justify-between text-lg font-semibold">
+            <span>Total:</span>
+            <span id="cartTotal" class="text-green-600">₵0.00</span>
+          </div>
+        </div>
+        <button onclick="checkoutWhatsApp()" id="checkoutBtn" disabled
+                class="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-4 rounded-lg font-bold hover:from-green-600 hover:to-emerald-700 transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+          Checkout via WhatsApp
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const vendorName = '<%= vendor.store_name %>';
+    const vendorWhatsApp = '<%= vendor.whatsapp || "" %>';
+    let cart = JSON.parse(localStorage.getItem('cart_' + vendorName) || '[]');
+
+    function updateCartUI() {
+      const cartCount = document.getElementById('cartCount');
+      const cartItems = document.getElementById('cartItems');
+      const cartTotal = document.getElementById('cartTotal');
+      const checkoutBtn = document.getElementById('checkoutBtn');
+      
+      const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+      const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      
+      cartCount.textContent = totalItems;
+      cartCount.classList.add('cart-count');
+      setTimeout(() => cartCount.classList.remove('cart-count'), 300);
+      
+      if (cart.length === 0) {
+        cartItems.innerHTML = '<p class="text-gray-500 text-center">Your cart is empty</p>';
+        checkoutBtn.disabled = true;
+      } else {
+        cartItems.innerHTML = cart.map(item => `
+          <div class="flex items-center gap-4 mb-4 pb-4 border-b">
+            <div class="flex-1">
+              <h4 class="font-semibold text-gray-800">${item.name}</h4>
+              <p class="text-green-600 font-bold">₵${item.price}</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="updateQuantity('${item.id}', -1)" class="w-8 h-8 bg-gray-200 rounded-full hover:bg-gray-300">-</button>
+              <span class="font-semibold w-8 text-center">${item.quantity}</span>
+              <button onclick="updateQuantity('${item.id}', 1)" class="w-8 h-8 bg-blue-500 text-white rounded-full hover:bg-blue-600">+</button>
+            </div>
+            <button onclick="removeFromCart('${item.id}')" class="text-red-500 hover:text-red-700">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+              </svg>
+            </button>
+          </div>
+        `).join('');
+        checkoutBtn.disabled = false;
+      }
+      
+      cartTotal.textContent = '₵' + total.toFixed(2);
+    }
+
+    function addToCart(id, name, price) {
+      const existingItem = cart.find(item => item.id === id);
+      if (existingItem) {
+        existingItem.quantity++;
+      } else {
+        cart.push({ id, name, price, quantity: 1 });
+      }
+      localStorage.setItem('cart_' + vendorName, JSON.stringify(cart));
+      updateCartUI();
+      toggleCart();
+    }
+
+    function updateQuantity(id, change) {
+      const item = cart.find(item => item.id === id);
+      if (item) {
+        item.quantity += change;
+        if (item.quantity <= 0) {
+          removeFromCart(id);
+        } else {
+          localStorage.setItem('cart_' + vendorName, JSON.stringify(cart));
+          updateCartUI();
+        }
+      }
+    }
+
+    function removeFromCart(id) {
+      cart = cart.filter(item => item.id !== id);
+      localStorage.setItem('cart_' + vendorName, JSON.stringify(cart));
+      updateCartUI();
+    }
+
+    function toggleCart() {
+      const sidebar = document.getElementById('cartSidebar');
+      sidebar.classList.toggle('translate-x-full');
+    }
+
+    function checkoutWhatsApp() {
+      if (!vendorWhatsApp) {
+        alert('WhatsApp contact not available for this vendor');
+        return;
+      }
+      
+      let message = `Hi ${vendorName}! I would like to order:\\n\\n`;
+      cart.forEach(item => {
+        message += `${item.quantity}x ${item.name} - ₵${(item.price * item.quantity).toFixed(2)}\\n`;
+      });
+      const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      message += `\\nTotal: ₵${total.toFixed(2)}`;
+      
+      const whatsappUrl = `https://wa.me/${vendorWhatsApp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`;
+      window.open(whatsappUrl, '_blank');
+    }
+
+    updateCartUI();
+  </script>
 </body>
 </html>
