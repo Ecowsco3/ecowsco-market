@@ -8,12 +8,37 @@
 </head>
 <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen flex items-center justify-center px-4 py-8">
   <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-lg">
-    <div class="text-center mb-6">
-      <h2 class="text-3xl font-bold text-gray-800">Vendor Registration</h2>
-      <p class="text-gray-600 mt-2">Create your account and start selling</p>
-    </div>
-    
-    <form action="/register" method="POST" class="space-y-4">
+    <% if (success) { %>
+      <div class="text-center">
+        <div class="mb-6">
+          <div class="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+            <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+          </div>
+          <h2 class="text-3xl font-bold text-gray-800">Registration Successful!</h2>
+          <p class="text-gray-600 mt-2">Your store is now live</p>
+        </div>
+        
+        <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 mb-6">
+          <p class="text-sm font-semibold text-gray-700 mb-2">Your Store Link:</p>
+          <a href="<%= storeLink %>" target="_blank" class="text-blue-600 hover:text-blue-800 font-bold text-lg break-all">
+            <%= storeLink %>
+          </a>
+          <p class="text-xs text-gray-600 mt-3">Share this link with your customers!</p>
+        </div>
+        
+        <a href="/login" class="block w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-green-600 hover:to-emerald-700 transition shadow-lg">
+          Go to Login
+        </a>
+      </div>
+    <% } else { %>
+      <div class="text-center mb-6">
+        <h2 class="text-3xl font-bold text-gray-800">Vendor Registration</h2>
+        <p class="text-gray-600 mt-2">Create your account and start selling</p>
+      </div>
+      
+      <form action="/register" method="POST" class="space-y-4">
       <div>
         <label class="block text-sm font-semibold text-gray-700 mb-2">Full Name</label>
         <input type="text" name="name" placeholder="John Doe" required 
@@ -61,6 +86,7 @@
       Already have an account? 
       <a href="/login" class="text-blue-600 hover:text-blue-800 font-medium">Login here</a>
     </p>
+    <% } %>
   </div>
 </body>
 </html>

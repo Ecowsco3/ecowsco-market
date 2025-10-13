@@ -63,7 +63,7 @@ app.get('/check-store', async (req, res) => {
 });
 
 // ---------- Register ----------
-app.get('/register', (req, res) => res.render('register'));
+app.get('/register', (req, res) => res.render('register', { success: false, storeLink: null }));
 app.post('/register', async (req, res) => {
   const { name, email, password, store_name, whatsapp, description } = req.body;
   const hashed = await bcrypt.hash(password, 10);
@@ -75,7 +75,8 @@ app.post('/register', async (req, res) => {
        VALUES($1,$2,$3,$4,$5,$6)`,
       [name, email, hashed, sanitizedStore, whatsapp || null, description || null]
     );
-    res.redirect('/login');
+    const storeLink = `${req.protocol}://${req.headers.host}/store/${sanitizedStore}`;
+    res.render('register', { success: true, storeLink });
   } catch (err) {
     console.error(err);
     res.send('Error: Email or store name may already exist.');
