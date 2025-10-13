@@ -8,7 +8,7 @@ const bcrypt = require('bcrypt');
 const pool = require('./utils/db.js');
 const crypto = require('crypto');
 const path = require('path');
-const nodemailer = require('nodemailer');
+const emailjs = require('@emailjs/nodejs');
 
 const app = express();
 
@@ -25,26 +25,24 @@ app.use(
   })
 );
 
-// ---------- Helper: send emails via Nodemailer ----------
+// ---------- Helper: send emails via Email.js ----------
 async function sendEmail(to, subject, message) {
   try {
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
+    await emailjs.send(
+      process.env.EMAILJS_SERVICE_ID,
+      process.env.EMAILJS_TEMPLATE_ID,
+      {
+        to_email: to,
+        subject,
+        message,
       },
-    });
-
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: to,
-      subject: subject,
-      html: message,
-    });
-    console.log('Email sent successfully to:', to);
+      {
+        publicKey: process.env.EMAILJS_PUBLIC_KEY,
+        privateKey: process.env.EMAILJS_PRIVATE_KEY,
+      }
+    );
   } catch (err) {
-    console.error('Email sending error:', err);
+    console.error('Email.js error:', err);
   }
 }
 
