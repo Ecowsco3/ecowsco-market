@@ -36,7 +36,10 @@ async function sendEmail(to, subject, message) {
         subject,
         message,
       },
-      process.env.EMAILJS_PRIVATE_KEY
+      {
+        publicKey: process.env.EMAILJS_PUBLIC_KEY,
+        privateKey: process.env.EMAILJS_PRIVATE_KEY,
+      }
     );
   } catch (err) {
     console.error('Email.js error:', err);
