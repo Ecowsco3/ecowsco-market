@@ -1,5 +1,4 @@
 // index.js (CommonJS, Replit-ready, Email.js version)
-
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
@@ -12,6 +11,7 @@ const emailjs = require('@emailjs/nodejs');
 
 const app = express();
 
+// ---------- Express Config ----------
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(express.static('public'));
@@ -19,13 +19,13 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(
   session({
-    secret: process.env.SESSION_SECRET,
+    secret: process.env.SESSION_SECRET || 'defaultsecret',
     resave: false,
     saveUninitialized: false,
   })
 );
 
-// ---------- Helper: send emails via Email.js ----------
+// ---------- Helper: Send Emails ----------
 async function sendEmail(to, subject, message) {
   try {
     await emailjs.send(
@@ -42,19 +42,21 @@ async function sendEmail(to, subject, message) {
       }
     );
   } catch (err) {
-    console.error('Email.js error:', err);
+    console.error('Email.js error:', err.message);
   }
 }
 
-// ---------- Helper: sanitize store name ----------
+// ---------- Helper: Sanitize Store Name ----------
 function sanitizeStoreName(name) {
   return name.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '');
 }
 
-// ---------- Home ----------
+// ---------- Routes ----------
+
+// Home
 app.get('/', (req, res) => res.render('index'));
 
-// ---------- Store Name AJAX ----------
+// Check store availability (AJAX)
 app.get('/check-store', async (req, res) => {
   const rawName = req.query.store_name || '';
   const store_name = sanitizeStoreName(rawName);
@@ -62,8 +64,9 @@ app.get('/check-store', async (req, res) => {
   res.json({ available: result.rows.length === 0 });
 });
 
-// ---------- Register ----------
+// Register
 app.get('/register', (req, res) => res.render('register', { success: false, storeLink: null }));
+
 app.post('/register', async (req, res) => {
   const { name, email, password, store_name, whatsapp, description } = req.body;
   const hashed = await bcrypt.hash(password, 10);
@@ -75,6 +78,7 @@ app.post('/register', async (req, res) => {
        VALUES($1,$2,$3,$4,$5,$6)`,
       [name, email, hashed, sanitizedStore, whatsapp || null, description || null]
     );
+
     const storeLink = `${req.protocol}://${req.headers.host}/store/${sanitizedStore}`;
     res.render('register', { success: true, storeLink });
   } catch (err) {
@@ -83,12 +87,14 @@ app.post('/register', async (req, res) => {
   }
 });
 
-// ---------- Login ----------
+// Login
 app.get('/login', (req, res) => res.render('login'));
+
 app.post('/login', async (req, res) => {
   const { email, password } = req.body;
   const result = await pool.query('SELECT * FROM vendors WHERE email=$1', [email]);
   const user = result.rows[0];
+
   if (user && (await bcrypt.compare(password, user.password))) {
     req.session.vendor = user;
     res.redirect('/dashboard');
@@ -97,21 +103,23 @@ app.post('/login', async (req, res) => {
   }
 });
 
-// ---------- Dashboard ----------
+// Dashboard
 app.get('/dashboard', async (req, res) => {
   if (!req.session.vendor) return res.redirect('/login');
   const products = await pool.query('SELECT * FROM products WHERE vendor_id=$1', [req.session.vendor.id]);
   res.render('dashboard', { vendor: req.session.vendor, products: products.rows });
 });
 
-// ---------- Add Product ----------
+// Add Product
 app.get('/add-product', (req, res) => {
   if (!req.session.vendor) return res.redirect('/login');
   res.render('add_product');
 });
+
 app.post('/add-product', async (req, res) => {
   if (!req.session.vendor) return res.redirect('/login');
   const { name, price, image_url, description } = req.body;
+
   try {
     await pool.query(
       `INSERT INTO products(name,price,image,vendor_id,description)
@@ -125,7 +133,7 @@ app.post('/add-product', async (req, res) => {
   }
 });
 
-// ---------- Edit Product ----------
+// Edit Product
 app.get('/edit-product/:id', async (req, res) => {
   if (!req.session.vendor) return res.redirect('/login');
   const { id } = req.params;
@@ -133,10 +141,12 @@ app.get('/edit-product/:id', async (req, res) => {
   if (result.rows.length === 0) return res.send('Product not found');
   res.render('edit_product', { product: result.rows[0] });
 });
+
 app.post('/edit-product/:id', async (req, res) => {
   if (!req.session.vendor) return res.redirect('/login');
   const { id } = req.params;
   const { name, price, image_url, description } = req.body;
+
   try {
     await pool.query(
       'UPDATE products SET name=$1, price=$2, image=$3, description=$4 WHERE id=$5 AND vendor_id=$6',
@@ -149,10 +159,11 @@ app.post('/edit-product/:id', async (req, res) => {
   }
 });
 
-// ---------- Delete Product ----------
+// Delete Product
 app.post('/delete-product/:id', async (req, res) => {
   if (!req.session.vendor) return res.redirect('/login');
   const { id } = req.params;
+
   try {
     await pool.query('DELETE FROM products WHERE id=$1 AND vendor_id=$2', [id, req.session.vendor.id]);
     res.redirect('/dashboard');
@@ -162,29 +173,32 @@ app.post('/delete-product/:id', async (req, res) => {
   }
 });
 
-// ---------- Store Page ----------
+// Store Page
 app.get('/store/:store_name', async (req, res) => {
   const sanitizedStore = sanitizeStoreName(req.params.store_name);
   const result = await pool.query('SELECT * FROM vendors WHERE store_name=$1', [sanitizedStore]);
   const vendor = result.rows[0];
-  if (!vendor) return 'Store not found';
+
+  if (!vendor) return res.send('Store not found');
   const products = await pool.query('SELECT * FROM products WHERE vendor_id=$1', [vendor.id]);
   res.render('store', { vendor, products: products.rows });
 });
 
-// ---------- Password Reset Request ----------
+// Password Reset Request
 app.get('/reset-request', (req, res) => res.render('reset_request', { resetLink: null }));
+
 app.post('/reset-request', async (req, res) => {
   const { email } = req.body;
   const token = crypto.randomBytes(32).toString('hex');
   const expires = new Date(Date.now() + 3600 * 1000); // 1 hour
+
   try {
     await pool.query('INSERT INTO password_resets(email,token,expires_at) VALUES($1,$2,$3)', [
       email,
       token,
       expires,
     ]);
-    const link = `https://${req.headers.host}/reset-password/${token}`;
+    const link = `${req.protocol}://${req.headers.host}/reset-password/${token}`;
     res.render('reset_request', { resetLink: link });
   } catch (err) {
     console.error(err);
@@ -192,20 +206,22 @@ app.post('/reset-request', async (req, res) => {
   }
 });
 
-// ---------- Reset Password ----------
+// Reset Password
 app.get('/reset-password/:token', async (req, res) => {
   const { token } = req.params;
   const result = await pool.query('SELECT * FROM password_resets WHERE token=$1 AND expires_at>$2', [token, new Date()]);
-  if (result.rows.length === 0) return 'Invalid or expired token';
+  if (result.rows.length === 0) return res.send('Invalid or expired token');
   res.render('reset_form', { token });
 });
+
 app.post('/reset-password/:token', async (req, res) => {
   const { token } = req.params;
   const { password } = req.body;
   const hashed = await bcrypt.hash(password, 10);
+
   try {
     const reset = await pool.query('SELECT email FROM password_resets WHERE token=$1', [token]);
-    if (reset.rows.length === 0) return 'Invalid token';
+    if (reset.rows.length === 0) return res.send('Invalid token');
     await pool.query('UPDATE vendors SET password=$1 WHERE email=$2', [hashed, reset.rows[0].email]);
     await pool.query('DELETE FROM password_resets WHERE token=$1', [token]);
     res.send('Password reset successful! You can now login.');
@@ -215,18 +231,19 @@ app.post('/reset-password/:token', async (req, res) => {
   }
 });
 
-// ---------- Logout ----------
+// Logout (Vendor)
 app.get('/logout', (req, res) => {
   req.session.destroy(() => res.redirect('/login'));
 });
 
-// ---------- Admin Dashboard ----------
+// Admin Dashboard
 app.get('/admin', async (req, res) => {
   if (!req.session.admin) return res.render('admin', { admin: false });
   const stores = await pool.query('SELECT * FROM vendors ORDER BY id DESC');
   const products = await pool.query('SELECT * FROM products');
   const totalStores = stores.rows.length;
   const totalProducts = products.rows.length;
+
   res.render('admin', {
     admin: true,
     stores: stores.rows,
@@ -235,13 +252,19 @@ app.get('/admin', async (req, res) => {
     totalProducts,
   });
 });
+
+// Admin Login
 app.post('/admin-login', (req, res) => {
   const { username, password } = req.body;
   if (username === process.env.ADMIN_USER && password === process.env.ADMIN_PASS) {
     req.session.admin = true;
     res.redirect('/admin');
-  } else res.send('Invalid admin credentials');
+  } else {
+    res.send('Invalid admin credentials');
+  }
 });
+
+// Admin Delete Store
 app.post('/admin/delete-store/:id', async (req, res) => {
   const { id } = req.params;
   try {
@@ -254,6 +277,11 @@ app.post('/admin/delete-store/:id', async (req, res) => {
   }
 });
 
+// ✅ FIXED: Admin Logout (must be POST)
+app.post('/admin-logout', (req, res) => {
+  req.session.destroy(() => res.redirect('/admin'));
+});
+
 // ---------- Start Server ----------
-const PORT = 5000;
-app.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT}`));
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server running on port ${PORT}`));
