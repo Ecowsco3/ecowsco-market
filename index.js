@@ -108,7 +108,7 @@ app.post('/login', async (req, res) => {
 app.get('/dashboard', async (req, res) => {
   if (!req.session.vendor) return res.redirect('/login');
   const products = await pool.query('SELECT * FROM products WHERE vendor_id=$1', [req.session.vendor.id]);
-  res.render('dashboard', { vendor: req.session.vendor, products: products.rows });
+  res.render('dashboard', { vendor: req.session.vendor, products: products.rows, profileSuccess: false });
 });
 
 // Add Product
@@ -171,6 +171,38 @@ app.post('/delete-product/:id', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.send('Error deleting product');
+  }
+});
+
+app.post('/dashboard/update-profile', async (req, res) => {
+  if (!req.session.vendor) return res.redirect('/login');
+
+  const { name, email, store_name, whatsapp, description, password } = req.body;
+  const sanitizedStore = sanitizeStoreName(store_name);
+
+  try {
+    let hashedPassword = req.session.vendor.password;
+    if (password && password.trim() !== '') {
+      hashedPassword = await bcrypt.hash(password, 10);
+    }
+
+    await pool.query(
+      `UPDATE vendors 
+       SET name=$1, email=$2, store_name=$3, whatsapp=$4, description=$5, password=$6 
+       WHERE id=$7`,
+      [name, email, sanitizedStore, whatsapp || null, description || null, hashedPassword, req.session.vendor.id]
+    );
+
+    // Refresh session data
+    const updatedVendor = await pool.query('SELECT * FROM vendors WHERE id=$1', [req.session.vendor.id]);
+    req.session.vendor = updatedVendor.rows[0];
+
+    // Re-render dashboard with success flag
+    const products = await pool.query('SELECT * FROM products WHERE vendor_id=$1', [req.session.vendor.id]);
+    res.render('dashboard', { vendor: req.session.vendor, products: products.rows, profileSuccess: true });
+  } catch (err) {
+    console.error(err);
+    res.send('Error updating profile. Email or store name may already exist.');
   }
 });
 
