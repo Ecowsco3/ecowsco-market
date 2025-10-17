@@ -1,8 +1,7 @@
-// index.js — Ecowsco Market (Render-ready, PostgreSQL sessions, Email.js)
+// index.js (CommonJS, Replit-ready, Email.js version)
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
-const pgSession = require('connect-pg-simple')(session);
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
 const pool = require('./utils/db.js');
@@ -19,18 +18,11 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(express.static('public'));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-
-// ✅ Use PostgreSQL-backed session store
 app.use(
   session({
-    store: new pgSession({
-      pool,
-      tableName: 'sessions', // auto-created by connect-pg-simple
-    }),
     secret: process.env.SESSION_SECRET || 'defaultsecret',
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 }, // 30 days
   })
 );
 
@@ -40,7 +32,11 @@ async function sendEmail(to, subject, message) {
     await emailjs.send(
       process.env.EMAILJS_SERVICE_ID,
       process.env.EMAILJS_TEMPLATE_ID,
-      { to_email: to, subject, message },
+      {
+        to_email: to,
+        subject,
+        message,
+      },
       {
         publicKey: process.env.EMAILJS_PUBLIC_KEY,
         privateKey: process.env.EMAILJS_PRIVATE_KEY,
@@ -61,7 +57,7 @@ function sanitizeStoreName(name) {
 // Home
 app.get('/', (req, res) => res.render('index'));
 
-// Check store availability
+// Check store availability (AJAX)
 app.get('/check-store', async (req, res) => {
   const rawName = req.query.store_name || '';
   const store_name = sanitizeStoreName(rawName);
@@ -69,7 +65,7 @@ app.get('/check-store', async (req, res) => {
   res.json({ available: result.rows.length === 0 });
 });
 
-// Register Vendor
+// Register
 app.get('/register', (req, res) => res.render('register', { success: false, storeLink: null }));
 
 app.post('/register', async (req, res) => {
@@ -236,12 +232,12 @@ app.post('/reset-password/:token', async (req, res) => {
   }
 });
 
-// Logout
+// Logout (Vendor)
 app.get('/logout', (req, res) => {
   req.session.destroy(() => res.redirect('/login'));
 });
 
-// Admin Panel
+// Admin Dashboard
 app.get('/admin', async (req, res) => {
   if (!req.session.admin) return res.render('admin', { admin: false });
   const stores = await pool.query('SELECT * FROM vendors ORDER BY id DESC');
@@ -282,7 +278,7 @@ app.post('/admin/delete-store/:id', async (req, res) => {
   }
 });
 
-// Admin Logout
+// ✅ FIXED: Admin Logout (must be POST)
 app.post('/admin-logout', (req, res) => {
   req.session.destroy(() => res.redirect('/admin'));
 });
