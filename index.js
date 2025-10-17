@@ -8,6 +8,7 @@ const pool = require('./utils/db.js');
 const crypto = require('crypto');
 const path = require('path');
 const emailjs = require('@emailjs/nodejs');
+require('./utils/keepAlive');
 
 const app = express();
 
