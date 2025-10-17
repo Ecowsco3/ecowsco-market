@@ -117,32 +117,42 @@ app.post('/update-profile', async (req, res) => {
   if (!req.session.vendor) return res.redirect('/login');
 
   const { name, email, store_name, whatsapp, description, password } = req.body;
-  const sanitizedStore = sanitizeStoreName(store_name);
-  let hashedPassword = null;
+  const vendor = req.session.vendor;
 
   try {
+    // Check if email or store_name is used by someone else
+    const existing = await pool.query(
+      'SELECT * FROM vendors WHERE (email=$1 OR store_name=$2) AND id != $3',
+      [email, store_name, vendor.id]
+    );
+
+    if (existing.rows.length > 0) {
+      const products = await pool.query('SELECT * FROM products WHERE vendor_id=$1', [vendor.id]);
+      return res.render('dashboard', { vendor, products: products.rows, success: 0, error: 'Email or store name already taken by another vendor.' });
+    }
+
+    // Hash password if provided
+    let hashedPassword = vendor.password;
     if (password && password.trim() !== '') {
       hashedPassword = await bcrypt.hash(password, 10);
     }
 
-    const query = `
-      UPDATE vendors
-      SET name=$1, email=$2, store_name=$3, whatsapp=$4, description=$5
-      ${hashedPassword ? ', password=$6' : ''}
-      WHERE id=$7
-      RETURNING *;
-    `;
-    const params = hashedPassword
-      ? [name, email, sanitizedStore, whatsapp || null, description || null, hashedPassword, req.session.vendor.id]
-      : [name, email, sanitizedStore, whatsapp || null, description || null, req.session.vendor.id];
+    // Update vendor info
+    await pool.query(
+      `UPDATE vendors SET name=$1, email=$2, store_name=$3, whatsapp=$4, description=$5, password=$6 WHERE id=$7`,
+      [name, email, store_name, whatsapp || null, description || null, hashedPassword, vendor.id]
+    );
 
-    const result = await pool.query(query, params);
+    // Update session
+    const updatedVendor = await pool.query('SELECT * FROM vendors WHERE id=$1', [vendor.id]);
+    req.session.vendor = updatedVendor.rows[0];
 
-    req.session.vendor = result.rows[0]; // update session
-    res.redirect('/dashboard?success=1'); // add success query param
+    const products = await pool.query('SELECT * FROM products WHERE vendor_id=$1', [vendor.id]);
+    res.render('dashboard', { vendor: req.session.vendor, products: products.rows, success: 1 });
   } catch (err) {
     console.error(err);
-    res.send('Error updating profile. Email or store name may already exist.');
+    const products = await pool.query('SELECT * FROM products WHERE vendor_id=$1', [vendor.id]);
+    res.render('dashboard', { vendor, products: products.rows, success: 0, error: 'Error updating profile.' });
   }
 });
 
